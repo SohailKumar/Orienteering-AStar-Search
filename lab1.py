@@ -4,10 +4,7 @@ from math import sqrt
 from PIL import Image, ImageDraw
 import sys
 
-# openL = [[0]*395 for i in range(500)]
-# closedL = [[0]*395 for i in range(500)]
 elevationL = [[0]*395 for i in range(500)]
-# terrainL = [[0]*395 for i in range(500)]
 imgT = ""
 
 class Node:
@@ -26,7 +23,7 @@ class Node:
         except:
             print("Y: ", y-1, "X", x-1)                                     #elevation value
         self.h = sqrt((goalX - x)**2 + (goalY - y)**2 + (elevationL[goalY][goalX] - self.w)**2)     #3D Euclidean Distance heuristic value
-        self.g = g                                                          #distance from goal
+        self.g = g                                                          #distance from start
         self.parent = parent
         self.f = self.g + self.w * self.h * getValue(self.x,self.y)                                               
         
@@ -56,6 +53,9 @@ def getValue(x,y):
         return 7
     elif color == (248,148,18): #open land
         return 3
+    else:
+        print(color)
+        sys.exit
 
 def SetupElevationList(elevationFile):
     with open(elevationFile) as elev:
@@ -70,11 +70,6 @@ def SetupElevationList(elevationFile):
                 if(x==395):
                     break
             y+=1
-    # To print Elevation:
-    # e = 0 
-    # for a in elevationL[0]:
-    #     print(e, a)
-    #     e+=1
 
 
 def DrawPath(path, imgNew):
@@ -119,19 +114,21 @@ def AStarSetup(start, end):
                 minJ = j
         
         n = openL[minJ]
-        # print("N: ", n, ", type: ", type(n))
+        # print("N: (", n.x, ",", n.y, ", ", n.f , ")")
         del openL[minJ]
         neighs = GetNeighbors(n, end)
         for i in neighs:
             if i.x == end[0] and i.y == end[1]:
                 return Path(i)
-            if (openL.get((i.x,i.y)) is not None and openL[(i.x,i.y)].f < i.f) or (closedL.get((i.x,i.y)) is not None and closedL[(i.x,i.y)].f < i.f):
+            if (openL.get((i.x,i.y)) is not None and openL[(i.x,i.y)].f <= i.f) or (closedL.get((i.x,i.y)) is not None and closedL[(i.x,i.y)].f <= i.f):
                 continue
             else:
+                # if openL.get((i.x,i.y)) is not None:
+                #     print("I: ", i.x, ",", i.y, ", fi: ", i.f, ", of:", openL[(i.x,i.y)].f)
+                # print("I: (", i.x, ",", i.y, ", ", i.f , ")", "O: (", openL[(i.x,i.y)].f, ")")
                 openL[(i.x,i.y)] = i
         closedL[(i.x,i.y)] = i
     return []
-    print("Start: ", start)
 
 if __name__ == "__main__":
     # terrainImage = sys.argv[1]
@@ -144,9 +141,9 @@ if __name__ == "__main__":
     # pathFile = "TestCourses/brown.txt"
     # outputImageFileName = "output.png"
 
-    terrainImage = "testcases/stripElevation/terrain.png"
-    elevationFile = "testcases/stripElevation/mpp.txt"
-    pathFile = "testcases/stripElevation/path.txt"
+    terrainImage = "testcases/elevation/terrain.png"
+    elevationFile = "testcases/elevation/mpp.txt"
+    pathFile = "testcases/elevation/path.txt"
     outputImageFileName = "output.png"
 
     SetupElevationList(elevationFile)
@@ -156,10 +153,9 @@ if __name__ == "__main__":
         for line in f.readlines():
             destinations.append([int(m) for m in line.split(" ")])
 
-    imgT = Image.open(terrainImage)
-    print(imgT.getpixel((0,0)))
-    imgNew = imgT.copy()
-    # print("PATH: ", AStarSetup((0,0),(1,1)))
+    img = Image.open(terrainImage)
+    imgT = img.convert('RGB')
+    imgNew = img.copy()
     for i in range(len(destinations)-1):
         print("Destination", i, destinations[i], "Destination", i+1, destinations[i+1])
         path = AStarSetup(destinations[i], destinations[i+1])
