@@ -1,6 +1,7 @@
 #TODOS
 
 from math import sqrt
+import random
 from PIL import Image, ImageDraw
 import sys
 
@@ -15,17 +16,22 @@ class Node:
     g = -1
     parent = -1
     f = -1
-    def __init__(self, x, y, goalX, goalY, g, parent):
+    distance = -1
+    def __init__(self, x, y, goalX, goalY, distanceTravelled, parent):
         self.x = x
         self.y = y
-        try:
-            self.w = elevationL[y][x]   
-        except:
-            print("Y: ", y-1, "X", x-1)                                     #elevation value
-        self.h = sqrt((goalX - x)**2 + (goalY - y)**2 + (elevationL[goalY][goalX] - self.w)**2)     #3D Euclidean Distance heuristic value
-        self.g = g                                                          #distance from start
+        self.w = getValue(self.x, self.y)
+        self.h = sqrt((goalX - x)**2 + (goalY - y)**2 + (elevationL[goalY][goalX] - elevationL[self.y][self.x])**2)     #3D Euclidean Distance heuristic value
+
+        if(parent == None):
+            self.g = 0
+            self.distance = 0
+        else:
+            #parent g + distance from parent * terrain weight value
+            self.g = parent.g + sqrt(distanceTravelled[0]**2 + distanceTravelled[1]**2 + (elevationL[y][x] - elevationL[parent.y][parent.x])**2) * self.w
+            self.distance = parent.distance + sqrt(distanceTravelled[0]**2 + distanceTravelled[1]**2 + (elevationL[y][x] - elevationL[parent.y][parent.x])**2)
         self.parent = parent
-        self.f = self.g + self.w * self.h * getValue(self.x,self.y)                                               
+        self.f = self.g + self.w * self.h                                             
         
     def __str__(self):
         return f'(x: {self.x}, y: {self.y})\n\tw: {self.w}, h(n): {self.h}, g(n): {self.g}, parent: {self.parent}'
@@ -50,12 +56,13 @@ def getValue(x,y):
     elif color == (255,255,255):#easy movement forest
         return 4
     elif color == (255,192,0):  #rough meadow
-        return 7
+        return 6
     elif color == (248,148,18): #open land
         return 3
     else:
         print(color)
         sys.exit
+
 
 def SetupElevationList(elevationFile):
     with open(elevationFile) as elev:
@@ -78,6 +85,7 @@ def DrawPath(path, imgNew):
     for i in range(len(path)-1):
         drawNew.line([(path[i][0], path[i][1]),(path[i+1][0], path[i+1][1])], fill='red', width=1)
     
+
 def Path(node):
     totPath = []
     totPath.append((node.x, node.y))
@@ -91,60 +99,52 @@ def GetNeighbors(node, end):
     neighbors = []
 
     if(node.x >= 0 and node.x <= 393):
-        neighbors.append(Node(node.x+1, node.y, end[0], end[1], node.g+10.29, node))
+        neighbors.append(Node(node.x+1, node.y, end[0], end[1], (10.29,0), node))
     if(node.x <= 394 and node.x >= 1):
-        neighbors.append(Node(node.x-1, node.y, end[0], end[1], node.g+10.29, node))
+        neighbors.append(Node(node.x-1, node.y, end[0], end[1], (10.29,0), node))
     if(node.y >= 0 and node.y <= 498):
-        neighbors.append(Node(node.x, node.y+1, end[0], end[1], node.g+7.55, node))
+        neighbors.append(Node(node.x, node.y+1, end[0], end[1], (0,7.55), node))
     if(node.y <= 499 and node.y >= 1):
-        neighbors.append(Node(node.x, node.y-1, end[0], end[1], node.g+7.55, node))
+        neighbors.append(Node(node.x, node.y-1, end[0], end[1], (0,7.55), node))
     return neighbors
 
 def AStarSetup(start, end):
     openL = {}
     closedL = {}
-    openL[(start[0],start[1])] = Node(start[0], start[1], end[0], end[1], 0, None)
+    openL[(start[0],start[1])] = Node(start[0], start[1], end[0], end[1], (0,0), None)
     while len(openL)>0:
-        min = 999999999999
-        minJ = -1 
+        min = sys.maxsize
+        minJ = -1
+        
         for j in openL: #find smallest f
-            # print("J: ", j, ", openL ", openL[j])
             if openL[j].f < min:
                 min = openL[j].f
                 minJ = j
+
         
         n = openL[minJ]
-        # print("N: (", n.x, ",", n.y, ", ", n.f , ")")
-        del openL[minJ]
+        del openL[minJ] #remove node from dictionary
+
         neighs = GetNeighbors(n, end)
         for i in neighs:
             if i.x == end[0] and i.y == end[1]:
-                return Path(i)
-            if (openL.get((i.x,i.y)) is not None and openL[(i.x,i.y)].f <= i.f) or (closedL.get((i.x,i.y)) is not None and closedL[(i.x,i.y)].f <= i.f):
+                return Path(i), i.distance
+            
+            if closedL.get((i.x,i.y)) is not None:
                 continue
-            else:
-                # if openL.get((i.x,i.y)) is not None:
-                #     print("I: ", i.x, ",", i.y, ", fi: ", i.f, ", of:", openL[(i.x,i.y)].f)
-                # print("I: (", i.x, ",", i.y, ", ", i.f , ")", "O: (", openL[(i.x,i.y)].f, ")")
+
+            closedL[(i.x,i.y)] = i
+            
+            if (openL.get((i.x,i.y)) is None or openL[(i.x,i.y)].g > i.g):
                 openL[(i.x,i.y)] = i
-        closedL[(i.x,i.y)] = i
-    return []
+    return [], -1
+
 
 if __name__ == "__main__":
-    # terrainImage = sys.argv[1]
-    # elevationFile = sys.argv[2]
-    # pathFile = sys.argv[3]
-    # outputImageFileName = sys.argv[4]
-
-    # terrainImage = "terrain.png"
-    # elevationFile = "elevation.txt"
-    # pathFile = "TestCourses/brown.txt"
-    # outputImageFileName = "output.png"
-
-    terrainImage = "testcases/elevation/terrain.png"
-    elevationFile = "testcases/elevation/mpp.txt"
-    pathFile = "testcases/elevation/path.txt"
-    outputImageFileName = "output.png"
+    terrainImage = sys.argv[1]
+    elevationFile = sys.argv[2]
+    pathFile = sys.argv[3]
+    outputImageFileName = sys.argv[4]
 
     SetupElevationList(elevationFile)
 
@@ -156,13 +156,13 @@ if __name__ == "__main__":
     img = Image.open(terrainImage)
     imgT = img.convert('RGB')
     imgNew = img.copy()
+    totDistance = 0
     for i in range(len(destinations)-1):
-        print("Destination", i, destinations[i], "Destination", i+1, destinations[i+1])
-        path = AStarSetup(destinations[i], destinations[i+1])
-        print("PATH: ", path)
+        path, distance = AStarSetup(destinations[i], destinations[i+1])
+        totDistance += distance
         DrawPath(path,imgNew)
-        # imgNew.show()
+    print("Total Distance:", totDistance, "m")
     imgNew.show()
-    
+    imgNew.save(outputImageFileName)
 
 
